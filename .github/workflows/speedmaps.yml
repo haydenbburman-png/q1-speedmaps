@@ -1,0 +1,96 @@
+# Builds the Q1 Lakeside speedmaps 3x a day and publishes them to GitHub Pages.
+# Home page = the newest meeting (latest.html); each meeting stays under /<date>/.
+# Only official actions/* actions, pinned to the commit of a release (version in the comment).
+name: speedmaps
+
+on:
+  schedule:                    # UTC. Brisbane is UTC+10 all year (no daylight saving).
+    - cron: "0 23 * * *"       # 9:00am Brisbane
+    - cron: "30 2 * * *"       # 12:30pm
+    - cron: "30 6 * * *"       # 4:30pm (picks up late scratchings)
+  workflow_dispatch:           # "Run workflow" button on the Actions tab
+
+concurrency:                   # never two deployments at once
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read            # download the site published by the previous run
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      # Pages replaces the whole site on every deploy, so start from what's published now.
+      - name: Restore the published site (keeps earlier dates)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p output
+          id=$(gh api "repos/$REPO/actions/artifacts?name=github-pages&per_page=20" \
+                 -q '[.artifacts[] | select(.expired | not)][0].id // empty')
+          if [ -z "$id" ]; then echo "Nothing published yet."; exit 0; fi
+          gh api "repos/$REPO/actions/artifacts/$id/zip" > "$RUNNER_TEMP/site.zip"
+          unzip -q "$RUNNER_TEMP/site.zip" -d "$RUNNER_TEMP/site"
+          tar -xf "$RUNNER_TEMP/site/artifact.tar" -C output
+          echo "Restored artifact $id:"; ls output
+
+      # Exits 0 with "No Q1 Lakeside meeting found" on days without a meeting;
+      # fails (nothing deployed, old site stays up) if every race fails or the site blocks us.
+      - name: Build speedmaps
+        run: python run.py --fresh
+
+      - name: Use latest.html as the home page
+        id: site
+        run: |
+          if [ -f output/latest.html ]; then
+            cp output/latest.html output/index.html
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No speedmaps built yet - nothing to publish."
+          fi
+
+      - if: steps.site.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: output
+          retention-days: 90   # the next run restores from this
+
+      - if: steps.site.outputs.publish == 'true'
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  # GitHub switches off scheduled workflows after 60 days with no repo activity.
+  # Once a day, if nothing has been committed for 45 days, push an empty commit.
+  keepalive:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Empty commit if the repo has been quiet for 45 days
+        run: |
+          days=$(( ($(date +%s) - $(git log -1 --format=%ct)) / 86400 ))
+          if [ "$days" -lt 45 ]; then echo "Last commit $days days ago - nothing to do."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "keepalive: keep the scheduled workflow switched on"
+          git push

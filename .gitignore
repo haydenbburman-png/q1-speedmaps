@@ -1,0 +1,9 @@
+.venv/
+cache/
+debug/
+output/
+sample/
+__pycache__/
+.pytest_cache/
+# Stray meeting data dumps (e.g. meeting_2026-10-15.json) are not part of the project
+meeting_*.json
