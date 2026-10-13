@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import base64
 import html
+import os
+import re
 from datetime import datetime
 from pathlib import Path
 
 from . import config
 from .model import RaceMap
+
+DATE_DIR = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 CSS = """
 :root{--bg:#f4f6f5;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#0f3d2e}
@@ -18,6 +22,10 @@ header{padding:20px 16px 8px;max-width:1100px;margin:auto}h1{margin:0;font-size:
 .sub{color:var(--muted);font-size:13px}
 nav{position:sticky;top:0;background:var(--bg);padding:8px 16px;z-index:5;max-width:1100px;margin:auto;display:flex;gap:6px;flex-wrap:wrap}
 nav a{padding:5px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:600;font-size:13px}
+.meetings{max-width:1100px;margin:auto;padding:0 16px}.meetings summary{cursor:pointer;font-weight:600;font-size:14px;padding:4px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:6px 0 4px}
+.chips a{padding:5px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:13px}
+.chips a[aria-current]{border-color:var(--ink);font-weight:700}
 main{max-width:1100px;margin:auto;padding:0 16px 40px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:14px 0;overflow:hidden}
 .card img{width:100%;display:block}
@@ -44,7 +52,31 @@ def _rug(box: int) -> str:
     return f'<span class="rug" style="background:{bg};color:{num}">{inner}</span>'
 
 
-def build(meeting_title: str, date: str, maps: list[RaceMap], images: dict[int, Path], out: Path) -> Path:
+def _meetings_list(site_root: Path, out: Path, date: str) -> str:
+    """'All meetings' links to every <date>/index.html under site_root, newest first,
+    relative to the page being written (so they work on GitHub Pages and from file://)."""
+    pages = {p for p in site_root.glob("*/index.html") if DATE_DIR.fullmatch(p.parent.name)}
+    pages |= {p for p in site_root.glob("*/*/index.html") if DATE_DIR.fullmatch(p.parent.parent.name)}
+    if out.parent != site_root:  # this page, written after the list is made
+        pages.add(out)
+
+    def href(p: Path) -> str:
+        return html.escape(Path(os.path.relpath(p, out.parent)).as_posix())
+
+    links = [] if out.parent == site_root else [f'<a href="{href(site_root / "latest.html")}">Latest</a>']
+    for p in sorted(pages, key=lambda p: p.relative_to(site_root).as_posix(), reverse=True):
+        parts = p.parent.relative_to(site_root).parts   # ("2026-10-13",) or ("2026-10-13", "<slug>")
+        d = datetime.strptime(parts[0], "%Y-%m-%d")
+        label = f"{d:%a} {d.day} {d:%b %Y}" + (f" · {parts[1].replace('-', ' ').title()}" if len(parts) > 1 else "")
+        cur = ' aria-current="page"' if parts[0] == date else ""
+        links.append(f'<a href="{href(p)}"{cur}>{html.escape(label)}</a>')
+    return (f'<details class=meetings><summary>All meetings ({len(pages)})</summary>'
+            f'<div class=chips>{"".join(links)}</div></details>')
+
+
+def build(meeting_title: str, date: str, maps: list[RaceMap], images: dict[int, Path], out: Path,
+          site_root: Path | None = None) -> Path:
+    """site_root: the output folder; when given, the page gets an 'All meetings' list."""
     nav = "".join(f'<a href="#r{m.race.number}">R{m.race.number}</a>' for m in maps)
     cards = []
     for m in maps:
@@ -91,6 +123,7 @@ def build(meeting_title: str, date: str, maps: list[RaceMap], images: dict[int, 
 <title>{html.escape(meeting_title)} speedmaps {date}</title><style>{CSS}</style></head>
 <body><header><h1>{html.escape(meeting_title)} — Speedmaps</h1>
 <div class=sub>{date} · updated {stamp} · R/T = running trait (E/G/F/S/R) + line (Rail/Middle/Wide/Straight)</div></header>
+{_meetings_list(site_root, out, date) if site_root else ""}
 <nav>{nav}</nav><main>{''.join(cards)}</main>
 <script>document.querySelectorAll('.imgwrap').forEach(w=>w.scrollLeft=w.scrollWidth)</script></body></html>"""
     out.parent.mkdir(parents=True, exist_ok=True)

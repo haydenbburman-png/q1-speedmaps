@@ -5,7 +5,8 @@ who leads, who's caught wide, where the bumps are likely, and one phone-friendly
 
 - **Source:** fields + form from thedogs.com.au (Field & Form page + Short Form page for each race)
 - **Output:** `output/YYYY-MM-DD/index.html` (all races, images embedded) + one PNG per race,
-  and `output/latest.html` which always has the newest meeting — bookmark it.
+  and `output/latest.html` which always has the newest meeting — bookmark it. Its **All meetings** list
+  (top of the page) links to every earlier meeting.
 
 ## Setup (once, in the VS Code terminal)
 

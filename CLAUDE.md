@@ -3,7 +3,7 @@
 Personal tool that builds greyhound speedmaps for Q1 Lakeside (Queensland) from thedogs.com.au.
 
 ## Layout
-- `run.py` — CLI entry: finds the meeting, loops races, writes `output/<date>/index.html` + `R##.png`, copies to `output/latest.html`.
+- `run.py` — CLI entry: finds the meeting, loops races, writes `output/<date>/index.html` + `R##.png`, and `output/latest.html` (built separately, not copied, so its "All meetings" links are relative to `output/`; `report._meetings_list` lists every `<date>/index.html`).
 - `speedmap/config.py` — every tunable (URLs, delays, model constants, rug colours).
 - `speedmap/fetch.py` — requests session, 1.5s polite delay, 20-min disk cache in `cache/`, `save_debug()`.
 - `speedmap/parse.py` — dataclasses (Meeting/Race/Runner/Run) and parsers:

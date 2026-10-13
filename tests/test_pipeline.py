@@ -54,3 +54,16 @@ def test_render(tmp_path):
     png = render.draw(rm, "Q1 Lakeside", tmp_path / "R05.png")
     page = report.build("Q1 Lakeside", fx.DATE, [rm], {5: png}, tmp_path / "index.html")
     assert png.stat().st_size > 10_000 and "data:image/png" in page.read_text()
+
+
+def test_meetings_list(tmp_path):
+    race = _race()
+    parse.attach_runs(fx.shortform_page(), race.runners)
+    rm = model.build_map(race)
+    for d in ("2026-10-09", fx.DATE):
+        report.build("Q1 Lakeside", d, [rm], {}, tmp_path / d / "index.html", site_root=tmp_path)
+    home = report.build("Q1 Lakeside", fx.DATE, [rm], {}, tmp_path / "latest.html", site_root=tmp_path).read_text()
+    assert "All meetings (2)" in home
+    assert home.index('href="2026-10-13/index.html"') < home.index('href="2026-10-09/index.html"')  # newest first
+    day = (tmp_path / fx.DATE / "index.html").read_text()
+    assert 'href="../latest.html"' in day and 'href="../2026-10-09/index.html"' in day

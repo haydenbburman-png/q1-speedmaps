@@ -10,7 +10,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import traceback
 import webbrowser
@@ -87,11 +86,12 @@ def run(date: str, *, debug: bool, fresh: bool, open_browser: bool) -> int:
                 print(f"  {tag}: error\n{traceback.format_exc()}")
 
         if maps:
-            page = report.build(title, date, maps, images, out_dir / "index.html")
-            latest = config.OUTPUT_DIR / "latest.html"
-            shutil.copyfile(page, latest)
+            root = config.OUTPUT_DIR
+            page = report.build(title, date, maps, images, out_dir / "index.html", site_root=root)
+            # Built again rather than copied: its "All meetings" links are relative to output/.
+            latest = report.build(title, date, maps, images, root / "latest.html", site_root=root)
             produced.append(page)
-            print(f"\nSpeedmaps ready: {page}\n(also copied to {latest})")
+            print(f"\nSpeedmaps ready: {page}\n(also saved as {latest})")
 
     if open_browser and produced:
         webbrowser.open(produced[0].resolve().as_uri())
