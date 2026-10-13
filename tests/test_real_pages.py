@@ -14,10 +14,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from speedmap import model, parse  # noqa: E402
+from speedmap import config, model, parse  # noqa: E402
 
 PAGES = Path(__file__).resolve().parent / "pages"
 DATE = "2026-10-13"
+Q1 = config.TRACKS[0]
 
 
 def _page(name: str) -> str:
@@ -25,7 +26,7 @@ def _page(name: str) -> str:
 
 
 def _race(n: int, page: str) -> parse.Race:
-    mt = parse.find_meetings(_page("day"), DATE)[0]
+    mt = parse.find_meetings(_page("day"), DATE, Q1.slug_match)[0]
     race = next(r for r in mt.races if r.number == n)
     html = _page(page)
     parse.parse_race_info(html, race)
@@ -34,7 +35,7 @@ def _race(n: int, page: str) -> parse.Race:
 
 
 def test_day_page():
-    mts = parse.find_meetings(_page("day"), DATE)
+    mts = parse.find_meetings(_page("day"), DATE, Q1.slug_match)
     assert [m.slug for m in mts] == ["ladbrokes-q1-lakeside"]
     r1 = mts[0].races[0]
     assert r1.number == 1 and r1.name == "Ladbrokes Turn On Flex Multi"   # not the result "2 8 6 9"
@@ -72,7 +73,7 @@ def test_shortform_page():
     dates = [r.date for r in by_name["Black Is Back"].runs]
     assert all(dates) and dates == sorted(dates, reverse=True)
 
-    rm = model.build_map(race)
+    rm = model.build_map(race, Q1.codes)
     assert sorted(d.runner.box for d in rm.dogs) == [1, 2, 3, 4, 5, 6, 7, 8]
     assert "Beetle Boo" not in {d.runner.name for d in rm.dogs}
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from statistics import mean
 
@@ -30,12 +31,13 @@ class RaceMap:
     leader_gap: float = 0.0
 
 
-def _matching_runs(r: Runner, dist: int | None):
+def _matching_runs(r: Runner, dist: int | None, codes: Collection[str]):
+    """Recent runs with a split at this exact track (code) and distance."""
     if not dist:
         return []
     return [
         run for run in r.runs
-        if run.dist == dist and run.track in config.Q1_TRACK_CODES and run.first_sec
+        if run.dist == dist and run.track in codes and run.first_sec
     ][: config.RECENT_RUNS]
 
 
@@ -54,12 +56,13 @@ def _quantile(sorted_vals: list[float], q: float) -> float:
     return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
 
 
-def build_map(race: Race) -> RaceMap:
+def build_map(race: Race, codes: Collection[str]) -> RaceMap:
+    """codes: the track code(s) of the race's track (config.TRACKS); splits only count from those."""
     starters = [r for r in race.runners if not r.scratched and not r.reserve]
     dogs: list[MapDog] = []
 
     for r in starters:
-        runs = _matching_runs(r, race.dist)
+        runs = _matching_runs(r, race.dist, codes)
         secs = [run.first_sec for run in runs]
         recent_pos = [run.first_pos for run in r.runs[: config.RECENT_RUNS] if run.first_pos]
         avg_pos = mean(recent_pos) if recent_pos else None

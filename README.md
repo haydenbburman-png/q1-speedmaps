@@ -1,12 +1,13 @@
-# Q1 Lakeside Speedmaps
+# Greyhound Speedmaps — Q1 Lakeside & Q2 Parklands
 
-Automatically builds an easy-to-read speedmap for every race at Q1 Lakeside:
+Automatically builds an easy-to-read speedmap for every race at **Q1 Lakeside** and **Q2 Parklands**:
 who leads, who's caught wide, where the bumps are likely, and one phone-friendly page per meeting.
 
 - **Source:** fields + form from thedogs.com.au (Field & Form page + Short Form page for each race)
-- **Output:** `output/YYYY-MM-DD/index.html` (all races, images embedded) + one PNG per race,
-  and `output/latest.html` which always has the newest meeting — bookmark it. Its **All meetings** list
-  (top of the page) links to every earlier meeting.
+- **Output:** one folder per track, e.g. `output/q2-parklands/YYYY-MM-DD/index.html` (all races, images
+  embedded) + one PNG per race, and `output/<track>/latest.html` with that track's newest meeting.
+  `output/index.html` is the home page: each track's latest meeting (date, races, link), newest first.
+  Each meeting page has an **All meetings** list for its track and an **All tracks** link home.
 
 ## Setup (once, in the VS Code terminal)
 
@@ -26,7 +27,7 @@ pip install -r requirements.txt
 python run.py --open --debug
 ```
 
-That first run should open today's speedmaps in your browser. The terminal prints one line per race, for example:
+That first run should open today's speedmaps in your browser (if either track races today). The terminal prints one line per race, for example:
 
 ```
 R5 390m 6th Grade: 7 dogs, 32 past runs, 19 splits at trip  ->  order 2 7 3 1 6 8 4
@@ -40,9 +41,10 @@ Times are Brisbane time.
 
 **GitHub (no computer needed):** `.github/workflows/speedmaps.yml` builds the maps on GitHub at 9:00am,
 12:30pm and 4:30pm Brisbane time and publishes them to **https://haydenbburman-png.github.io/q1-speedmaps/**
-(home page = newest meeting, earlier meetings at `/<date>/`). To run it by hand: GitHub → Actions → speedmaps →
-Run workflow. On days with no Q1 meeting the last page stays up. If the site blocks GitHub's servers or every
-race fails, the run goes red and nothing is replaced. A keepalive step makes an empty commit if the repo has
+(home page = track chooser; meetings at `/q1-lakeside/<date>/` and `/q2-parklands/<date>/`; the old Q1 links
+`/latest.html` and `/2026-10-13/` redirect into `/q1-lakeside/`). To run it by hand: GitHub → Actions →
+speedmaps → Run workflow. On days with no meeting the last pages stay up. If the site blocks GitHub's servers or
+a meeting can't be built, the run goes red (GitHub emails you); anything that did build is still published. A keepalive step makes an empty commit if the repo has
 been quiet for 45 days, so GitHub doesn't switch the schedule off (it does after 60).
 
 Or run it on your own computer:
@@ -52,7 +54,7 @@ Or run it on your own computer:
 powershell -ExecutionPolicy Bypass -File scripts\schedule_windows.ps1
 ```
 That rebuilds the maps daily at 9:00am, 12:30pm and 4:30pm (the later runs pick up scratchings).
-On days with no Q1 meeting it just exits. A log is kept in `output/run_log.txt`.
+On days with no meeting it just exits. A log is kept in `output/run_log.txt`.
 
 **Linux:** run this once from the project folder:
 ```bash
@@ -73,7 +75,7 @@ Your computer has to be on (awake) at those times.
 
 | Command | What it does |
 |---|---|
-| `python run.py` | Today's meeting |
+| `python run.py` | Today's meetings (every track racing today) |
 | `python run.py --date tomorrow` | Tomorrow's (fields are usually up the day before) |
 | `python run.py --date 2026-10-16` | A specific date |
 | `--open` | Open the page in your browser when done |
@@ -84,10 +86,12 @@ Your computer has to be on (awake) at those times.
 ## How the map is worked out
 
 1. **Early speed:** each dog's first-split (1SEC) times **at this exact track and distance**, weighted toward
-   recent runs and blended with its best, plus the site's "Av 1SEC". (Split points differ a lot by trip: ~4.0s at
-   352m and ~6.1s at 390m, so splits from other distances are never mixed in.)
+   recent runs and blended with its best, plus the site's "Av 1SEC". Only runs with the track's own code count
+   (Q1 Lakeside = QOT, Q2 Parklands = QTT). Split points differ a lot by trip (~4.0s at 352m, ~6.1s at 390m,
+   ~5.1s at 520m, ~9.4s at 600m, ~4.6s at 710m), so splits from other distances are never mixed in.
 2. **No splits here?** It uses the dog's average early position (first number in its PIR) across recent runs,
-   blended with its running-trait letter. These dogs get a dashed rug and a `*`.
+   blended with its running-trait letter. These dogs get a dashed rug and a `*` on the map and are marked
+   **estimated** in the table (common at 710m, where few dogs have a split).
 3. **Lengths:** split differences are converted at about 0.07s per length.
 4. **Lane:** each dog starts at its box and drifts toward its preferred line from the R/T code
    (second letter: **R**ailer, **M**iddle, **W**ide, **S**traight).
@@ -96,10 +100,14 @@ Your computer has to be on (awake) at those times.
 Everything adjustable is in `speedmap/config.py` (lengths per second, lane drift, rug colours,
 optional box adjustments per distance).
 
+**Adding a track:** add a line to `TRACKS` in `speedmap/config.py` — display name, a piece of its meeting
+slug (from the URL, e.g. `q2-parklands` in `/racing/ladbrokes-q2-parklands/2026-10-11`) and its track
+code(s) as they appear in past-run lines. It gets its own folder, latest page and home-page card.
+
 ## Fixing the scraper (use Claude Code)
 
 The parsers read visible text and table headers rather than CSS classes, and were checked against the real
-pages on 13 Oct 2026 (trimmed copies in `tests/pages/`). If a site change breaks them:
+pages in Oct 2026 (trimmed copies in `tests/pages/`, including Q2 Parklands 520m and 710m races). If a site change breaks them:
 
 1. Run `python run.py --debug`
 2. In Claude Code, ask:

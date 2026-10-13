@@ -76,7 +76,8 @@ def _meetings_list(site_root: Path, out: Path, date: str) -> str:
 
 def build(meeting_title: str, date: str, maps: list[RaceMap], images: dict[int, Path], out: Path,
           site_root: Path | None = None) -> Path:
-    """site_root: the output folder; when given, the page gets an 'All meetings' list."""
+    """site_root: this track's output folder (output/<track>/); when given, the page gets an
+    'All meetings' list and an 'All tracks' link to the home page one level up."""
     nav = "".join(f'<a href="#r{m.race.number}">R{m.race.number}</a>' for m in maps)
     cards = []
     for m in maps:
@@ -94,7 +95,7 @@ def build(meeting_title: str, date: str, maps: list[RaceMap], images: dict[int, 
                 f"<td><b>{html.escape(d.runner.display)}</b><div class='sub trainer'>{html.escape(d.runner.trainer)}</div></td>"
                 f"<td>{html.escape(d.runner.rt or '–')}</td><td class=num>{sec}</td>"
                 f"<td class=num>{d.lengths:.1f}L</td>"
-                f"<td><span class='conf {d.conf}'>{d.conf}</span> <span class='sub basis-text'>{html.escape(d.basis)}</span></td></tr>"
+                f"<td><span class='conf {d.conf}'>{'estimated' if d.conf == 'low' else d.conf}</span> <span class='sub basis-text'>{html.escape(d.basis)}</span></td></tr>"
             )
         scr = [x for x in r.runners if x.scratched]
         scr_html = (f'<div class=scr>Scratched: {", ".join(f"{x.box}. {html.escape(x.display)}" for x in scr)}</div>'
@@ -118,11 +119,15 @@ def build(meeting_title: str, date: str, maps: list[RaceMap], images: dict[int, 
 </section>""")
 
     stamp = datetime.now(config.BRISBANE).strftime("%a %d %b %Y, %I:%M %p")  # Brisbane even on a UTC server
+    home = ""
+    if site_root:
+        home_href = Path(os.path.relpath(site_root.parent / "index.html", out.parent)).as_posix()
+        home = f'<a href="{html.escape(home_href)}">All tracks</a> · '
     page = f"""<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>{html.escape(meeting_title)} speedmaps {date}</title><style>{CSS}</style></head>
 <body><header><h1>{html.escape(meeting_title)} — Speedmaps</h1>
-<div class=sub>{date} · updated {stamp} · R/T = running trait (E/G/F/S/R) + line (Rail/Middle/Wide/Straight)</div></header>
+<div class=sub>{home}{date} · updated {stamp} · R/T = running trait (E/G/F/S/R) + line (Rail/Middle/Wide/Straight)</div></header>
 {_meetings_list(site_root, out, date) if site_root else ""}
 <nav>{nav}</nav><main>{''.join(cards)}</main>
 <script>document.querySelectorAll('.imgwrap').forEach(w=>w.scrollLeft=w.scrollWidth)</script></body></html>"""

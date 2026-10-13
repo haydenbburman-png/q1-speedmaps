@@ -2,6 +2,7 @@
 
 from datetime import timedelta, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 # Queensland has no daylight saving. thedogs prints times in Sydney time, so race
 # times are converted to this from the page's timestamps.
@@ -14,13 +15,21 @@ DEBUG_DIR = ROOT / "debug"     # raw pages saved when --debug is used or parsing
 
 BASE_URL = "https://www.thedogs.com.au"
 
-# Any meeting whose URL slug contains this is treated as Q1 Lakeside
-# (the sponsor prefix changes, e.g. "ladbrokes-q1-lakeside").
-TRACK_SLUG_MATCH = "q1-lakeside"
 
-# Track codes thedogs uses for the Q1 Lakeside configurations in past-run lines.
-#   QOT = one-turn, QTT = two-turn, QST = straight
-Q1_TRACK_CODES = {"QOT", "QTT", "QST"}
+class Track(NamedTuple):
+    name: str               # shown on pages and maps
+    slug_match: str         # a meeting whose URL slug contains this is this track (the sponsor
+                            # prefix changes, e.g. "ladbrokes-q1-lakeside"); also its output folder
+    codes: frozenset[str]   # track code(s) in past-run lines; splits only count from these
+
+
+# Every track with a meeting that day gets built. Codes checked against past-run links (Oct 2026):
+#   QOT = Q1 Lakeside (352/390/457/550m), QTT = Q2 Parklands (520/600/710m),
+#   QST = Q Straight, a separate meeting (ladbrokes-q-straight, 300/350m) — not built here.
+TRACKS = [
+    Track("Q1 Lakeside", "q1-lakeside", frozenset({"QOT"})),
+    Track("Q2 Parklands", "q2-parklands", frozenset({"QTT"})),
+]
 
 # Be polite: seconds between requests, and how long cached pages stay fresh.
 REQUEST_DELAY_SEC = 1.5

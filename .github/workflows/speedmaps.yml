@@ -1,5 +1,5 @@
-# Builds the Q1 Lakeside speedmaps 3x a day and publishes them to GitHub Pages.
-# Home page = the newest meeting (latest.html); each meeting stays under /<date>/.
+# Builds the speedmaps for every track in speedmap/config.py (Q1 Lakeside, Q2 Parklands) 3x a day
+# and publishes them to GitHub Pages: home page = track chooser, each track under /<track>/<date>/.
 # Only official actions/* actions, pinned to the commit of a release (version in the comment).
 name: speedmaps
 
@@ -51,19 +51,20 @@ jobs:
           tar -xf "$RUNNER_TEMP/site/artifact.tar" -C output
           echo "Restored artifact $id:"; ls output
 
-      # Exits 0 with "No Q1 Lakeside meeting found" on days without a meeting;
-      # fails (nothing deployed, old site stays up) if every race fails or the site blocks us.
+      # Exits 0 on days with no meeting (pages already published stay up). Exits 1 if the site
+      # looks blocked or a meeting produced no maps: whatever did build is still published,
+      # then the last step fails the run so GitHub emails you.
       - name: Build speedmaps
-        run: python run.py --fresh
+        id: build
+        run: python run.py --fresh || echo "failed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Use latest.html as the home page
+      - name: Check there is a site to publish
         id: site
         run: |
-          if [ -f output/latest.html ]; then
-            cp output/latest.html output/index.html
+          if [ -f output/index.html ]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No speedmaps built yet - nothing to publish."
+            echo "Nothing built yet - nothing to publish."
           fi
 
       - if: steps.site.outputs.publish == 'true'
@@ -75,6 +76,12 @@ jobs:
       - if: steps.site.outputs.publish == 'true'
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Fail the run if a meeting could not be built
+        if: steps.build.outputs.failed == 'true'
+        run: |
+          echo "::error::run.py reported a problem - see the 'Build speedmaps' step. Anything that did build was published."
+          exit 1
 
   # GitHub switches off scheduled workflows after 60 days with no repo activity.
   # Once a day, if nothing has been committed for 45 days, push an empty commit.

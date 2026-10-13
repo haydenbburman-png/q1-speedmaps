@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import string
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -124,8 +124,9 @@ def _norm_header(s: str) -> str:
 # --------------------------------------------------------------------------- meetings
 
 
-def find_meetings(day_html: str, date: str) -> list[Meeting]:
-    """From https://www.thedogs.com.au/racing/YYYY-MM-DD find Q1 Lakeside meeting(s) + race links."""
+def find_meetings(day_html: str, date: str, slug_match: str) -> list[Meeting]:
+    """From https://www.thedogs.com.au/racing/YYYY-MM-DD find the meeting(s) whose slug contains
+    slug_match (a config.TRACKS entry) + their race links."""
     soup = _soup(day_html)
     meetings: dict[str, Meeting] = {}
     for a in soup.find_all("a", href=True):
@@ -134,7 +135,7 @@ def find_meetings(day_html: str, date: str) -> list[Meeting]:
         if not m:
             continue
         slug, d, num, race_slug = m.groups()
-        if d != date or config.TRACK_SLUG_MATCH not in slug:
+        if d != date or slug_match not in slug:
             continue
         mt = meetings.setdefault(
             slug, Meeting(date=date, slug=slug, title=slug.replace("-", " ").title())
@@ -154,7 +155,7 @@ def find_meetings(day_html: str, date: str) -> list[Meeting]:
 
 def meeting_races_from_meeting_page(html: str, meeting: Meeting) -> None:
     """Fill race links from the meeting page if the day page didn't list them all."""
-    found = find_meetings(html, meeting.date)
+    found = find_meetings(html, meeting.date, meeting.slug)
     for mt in found:
         if mt.slug == meeting.slug:
             have = {r.number for r in meeting.races}
@@ -425,8 +426,10 @@ def _runs_from_text(text: str) -> list[Run]:
     return out
 
 
-def attach_runs(shortform_html: str, runners: list[Runner]) -> int:
-    """Attach past runs from the Short Form page to each runner. Returns runs attached."""
+def attach_runs(shortform_html: str, runners: list[Runner], before: date | None = None) -> int:
+    """Attach past runs from the Short Form page to each runner. Returns runs attached.
+    before: the meeting date. Runs on or after it are dropped: for a past meeting the form already
+    lists that day's results, including the race being mapped."""
     soup = _soup(shortform_html)
     names = {r.name.lower(): r for r in runners}
     total = 0
@@ -450,8 +453,7 @@ def attach_runs(shortform_html: str, runners: list[Runner]) -> int:
         total += len(runs)
 
     if total:
-        _dedupe(runners)
-        return sum(len(r.runs) for r in runners)
+        return _finish(runners, before)
 
     # 2) Text fallback: slice the page text between runner names.
     text = _text(soup.body or soup)
@@ -466,6 +468,13 @@ def attach_runs(shortform_html: str, runners: list[Runner]) -> int:
         end = spots[k + 1][0] if k + 1 < len(spots) else len(text)
         runs = _runs_from_text(text[i:end])
         r.runs.extend(runs)
+    return _finish(runners, before)
+
+
+def _finish(runners: list[Runner], before: date | None) -> int:
+    if before:
+        for r in runners:
+            r.runs = [x for x in r.runs if x.date is None or x.date.date() < before]
     _dedupe(runners)
     return sum(len(r.runs) for r in runners)
 
