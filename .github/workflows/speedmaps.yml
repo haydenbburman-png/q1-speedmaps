@@ -4,10 +4,13 @@
 name: speedmaps
 
 on:
-  schedule:                    # UTC. Brisbane is UTC+10 all year (no daylight saving).
-    - cron: "0 23 * * *"       # 9:00am Brisbane
-    - cron: "30 2 * * *"       # 12:30pm
-    - cron: "30 6 * * *"       # 4:30pm (picks up late scratchings)
+  # UTC. Brisbane is UTC+10 all year (no daylight saving). Off the hour/half-hour on purpose:
+  # GitHub delays scheduled runs most at :00/:30. The 7:17 run is a buffer in case 9:17 starts late.
+  schedule:
+    - cron: "17 21 * * *"      # 7:17am Brisbane
+    - cron: "17 23 * * *"      # 9:17am
+    - cron: "47 2 * * *"       # 12:47pm
+    - cron: "47 6 * * *"       # 4:47pm (picks up late scratchings)
   workflow_dispatch:           # "Run workflow" button on the Actions tab
     inputs:
       date:
@@ -93,7 +96,7 @@ jobs:
   # GitHub switches off scheduled workflows after 60 days with no repo activity.
   # Once a day, if nothing has been committed for 45 days, push an empty commit.
   keepalive:
-    if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
+    if: github.event_name == 'schedule' && github.event.schedule == '17 23 * * *'
     runs-on: ubuntu-latest
     permissions:
       contents: write

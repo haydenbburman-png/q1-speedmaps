@@ -39,8 +39,9 @@ Times are Brisbane time.
 
 ## Making it fully automatic
 
-**GitHub (no computer needed):** `.github/workflows/speedmaps.yml` builds the maps on GitHub at 9:00am,
-12:30pm and 4:30pm Brisbane time and publishes them to **https://haydenbburman-png.github.io/q1-speedmaps/**
+**GitHub (no computer needed):** `.github/workflows/speedmaps.yml` builds the maps on GitHub at about 7:17am,
+9:17am, 12:47pm and 4:47pm Brisbane time (GitHub often starts scheduled runs late; if the page is behind,
+use Run workflow) and publishes them to **https://haydenbburman-png.github.io/q1-speedmaps/**
 (home page = track chooser; meetings at `/q1-lakeside/<date>/` and `/q2-parklands/<date>/`; the old Q1 links
 `/latest.html` and `/2026-10-13/` redirect into `/q1-lakeside/`). To run it by hand: GitHub → Actions →
 speedmaps → Run workflow. On days with no meeting the last pages stay up. If the site blocks GitHub's servers or
